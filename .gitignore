@@ -8,7 +8,7 @@ tmp/*
 weights/*
 inputs/*
 gfpgan/weights/*
-version.py
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
