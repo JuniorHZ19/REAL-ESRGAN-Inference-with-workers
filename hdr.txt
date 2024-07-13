@@ -1,0 +1,22 @@
+
+
+ffmpeg -i fma4k.mp4 -vf "eq=brightness=0.1:contrast=1.2:saturation=1.5, curves=all='0/0 0.2/0.3 0.8/0.7 1/1'" -c:v h264_nvenc -b:v 60M -crf 18 -preset medium -c:a aac -strict experimental -b:a 192k salida_hdr_colorido.mp4
+
+ffmpeg -i perfet.mp4 -vf "unsharp=5:5:1.0:5:5:1.0,eq=brightness=0.03:contrast=1.2:saturation=1.8, curves=all='0/0 0.2/0.3 0.8/1 1/1'" -c:v h264_nvenc -b:v 60M  -crf 18 -preset medium -c:a aac -strict experimental -b:a 192k salida_hdr_vibrante.mp4
+
+
+parika:
+ffmpeg -i prueba2.png -vf "unsharp=5:5:1:5:5:1,eq=brightness=0.035:saturation=1.4:contrast=1.1,curves=all=0/0 0.2/0.3 0.7/1 1/1"  -c:v h264_nvenc -b:v 60M  -crf 18 -preset medium -c:a aac -strict experimental -b:a 192k salida.png
+
+
+
+con interpoalcion y sar acomados
+ffmpeg -i k.mp4 -vf "minterpolate='mi_mode=mci:mc_mode=aobmc:fps=60',eq=brightness=0.02:saturation=1.4:contrast=1.1,curves=all=0/0 0.2/0.3 0.7/1 1/1,unsharp=5:5:1:5:5:1,scale=1920:1080,setsar=1" salidacompleta.mp4
+
+sar acomados 4k 
+ffmpeg -i fmaprueba.mp3 -i fma4k.mp4  -vf "eq=saturation=1.4:contrast=1.1,unsharp=5:5:1:5:5:1,scale=3840:2160,setsar=1,hflip" -r 60 -b:v 65M -map 1:v -map 0:a salidacompleta.mp4
+
+
+Dividir dos videos viendo difencia cada video el color:
+
+ffmpeg -i   entrada.mp4    -filter_complex "[0:v]split=2[left][right];[left][right]hstack" resultado.mp4
