@@ -192,6 +192,7 @@ A common command: python inference_realesrgan.py -n RealESRGAN_x4plus -i infile 
   --face_enhance       Whether to use GFPGAN to enhance face. Default: False
   --fp32               Use fp32 precision during inference. Default: fp16 (half precision).
   --ext                Image extension. Options: auto | jpg | png, auto means using the same extension as inputs. Default: auto
+  --workers            The number of workers can depend on your GPU; more workers require more GPU memory. .Default:1
 ```
 
 #### Inference general images
@@ -202,13 +203,19 @@ Download pre-trained models: [RealESRGAN_x4plus.pth](https://github.com/xinntao/
 wget https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth -P weights
 ```
 
-Inference!
+Inference Normal Way!
 
 ```bash
-python inference_realesrgan.py -n RealESRGAN_x4plus -i inputs --face_enhance
-```
-
+python inference_realesrgan.py -n RealESRGAN_x4plus -i inputs --face_enhance --workers
 Results are in the `results` folder
+
+```
+Inference with Workers!
+
+```bash
+python inference_realesrgan_video-multiproceso.py -i 'inputs/frames' -n RealESRGAN_x4plus -i inputs -o 'inputs/frames' --workers 2
+```
+Results and the input must be the same place in the `inputs/frames` folder , you can use the original arguments except face_enhance
 
 #### Inference anime images
 
