@@ -23,9 +23,9 @@ set /p framerate="espesfia la tasa original del video:"
 set /p rate="espesfia la tasa que quiere que este creado el video final:"
 
 
-ffmpeg -framerate %framerate% -i "%BASE_DIR%inputs\Test\frame_%%04d.png" -c:v libx264  -crf 16 -preset slow -r %rate%  "%BASE_DIR%inputs\Test\temp.mp4"
+ffmpeg -framerate %framerate% -i "%BASE_DIR%inputs\frames\frame_%%08d.png" -c:v libx264  -crf 16 -preset slow -r %rate%  "%BASE_DIR%inputs\frames\temp.mp4"
 
-ffmpeg -i "%BASE_DIR%\inputs\Test\temp.mp4" -i %BASE_DIR%inputs\video\%input% -c:v copy -c:a aac -strict experimental results/%ouput_sf%.mp4
+ffmpeg -i "%BASE_DIR%\inputs\frames\temp.mp4" -i %BASE_DIR%inputs\video\%input% -c:v copy -c:a aac -strict experimental results/%ouput_sf%.mp4
 
 del "%BASE_DIR%inputs\Test\temp.mp4"
 

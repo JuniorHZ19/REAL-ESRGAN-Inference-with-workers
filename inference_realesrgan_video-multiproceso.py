@@ -26,6 +26,84 @@ except ImportError:
     pip.main(['install', '--user', 'ffmpeg-python'])
     import ffmpeg
 
+def create_frames(args):
+   delete_frames(args)
+   print(f"Extracting frames ....")
+   cmd = [
+       'ffmpeg',
+       '-i',str(args.input),
+       '-qscale:v','1',
+       '-qmin','1',
+       '-qmax','1',
+       '-vsync','0',
+       str(args.output_frames)+'/frame_%08d.png']
+
+   process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+   stdout, stderr = process.communicate()
+   if process.returncode != 0:
+    print(stderr)
+    raise RuntimeError(stderr)
+   else:
+    frame_count = len(os.listdir(args.output_frames))
+    print(f"Done, Extracted {frame_count} Frames")
+
+def delete_frames(args):
+    for item in os.listdir(args.output_frames):
+        item_path = os.path.join(args.output_frames, item)
+        if os.path.isdir(item_path):
+            shutil.rmtree(item_path)  # Eliminar directorios y su contenido
+        else:
+            os.remove(item_path)  # Eliminar archivos
+    print(f"Deleted frames ....")
+
+def get_video_meta_info(video_path):
+    ret = {}
+    probe = ffmpeg.probe(video_path)
+    video_streams = [stream for stream in probe['streams'] if stream['codec_type'] == 'video']
+    has_audio = any(stream['codec_type'] == 'audio' for stream in probe['streams'])
+    ret['width'] = video_streams[0]['width']
+    ret['height'] = video_streams[0]['height']
+    ret['fps'] = eval(video_streams[0]['avg_frame_rate'])
+    ret['audio'] = ffmpeg.input(video_path).audio if has_audio else None
+    ret['nb_frames'] = int(video_streams[0]['nb_frames'])
+    return ret
+
+
+
+def create_video(args):
+   print("Creating Video......")
+   info=get_video_meta_info(args.input)
+   cmd = [
+       'ffmpeg',
+       '-framerate',str(info['fps']),
+       '-i',str(args.output_frames)+'/frame_%08d.png',
+       '-i',str(args.input),
+       '-map','0:v',
+       '-map','1:a',
+       '-c:v','libx264',
+       '-crf','16',
+       '-preset','slow',
+       '-pix_fmt', 'yuv420p',
+       '-c:a','mp3',
+       '-r',str(info['fps']),
+        "results/"+str(args.output_video)
+        ]
+   process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+   stdout, stderr = process.communicate()
+   if process.returncode != 0:
+    print(stderr)
+    raise RuntimeError(stderr)
+   else:
+    print("Done Recreating Video")
+
+
+def getPaths(carpeta):
+    paths = []
+    for root, dirs, files in os.walk(carpeta):
+        for file in files:
+            paths.append(os.path.join(root, file))
+
+    return paths
 
 
 def divide_chunks(lst, n):
@@ -41,7 +119,6 @@ def multi_process_frame(args, temp_frame_paths, process_frames, update):
     with ThreadPoolExecutor(max_workers=args.workers) as executor:
         futures = []
         for chunk in chunks:
-            # Envía cada chunk como una tarea separada al ThreadPoolExecutor
             future = executor.submit(process_frames, args, chunk, update)
             futures.append(future)
 
@@ -69,13 +146,8 @@ def update_progress(progress):
     progress.update(1)
 
 
-def getPaths(args):
-    paths = []
-    for root, dirs, files in os.walk(args.input):
-        for file in files:
-            paths.append(os.path.join(root, file))
 
-    return paths
+
 
 
 def upscale_frame(args,path,upsampler):
@@ -102,11 +174,10 @@ def upscale_frame(args,path,upsampler):
             if img_mode == 'RGBA':  # RGBA images should be saved in png format
                 extension = 'png'
             if args.suffix == '':
-                save_path = os.path.join(args.output, f'{imgname}.{extension}')
+                save_path = os.path.join(args.output_frames, f'{imgname}.{extension}')
             else:
-                save_path = os.path.join(args.output, f'{imgname}_{args.suffix}.{extension}')
+                save_path = os.path.join(args.output_frames, f'{imgname}_{args.suffix}.{extension}')
             cv2.imwrite(save_path, output)
-
 
 
 
@@ -216,6 +287,14 @@ def getModel(args):
 
 
 def main():
+
+    """
+    Crear carpeta donde iran los frames:
+    """
+    carpeta_frames='inputs/frames'
+    if not os.path.exists(carpeta_frames):
+     os.makedirs(carpeta_frames, exist_ok=True)
+
     """Inference demo for Real-ESRGAN.
     """
     parser = argparse.ArgumentParser()
@@ -227,7 +306,8 @@ def main():
         default='RealESRGAN_x4plus',
         help=('Model names: RealESRGAN_x4plus | RealESRNet_x4plus | RealESRGAN_x4plus_anime_6B | RealESRGAN_x2plus | '
               'realesr-animevideov3 | realesr-general-x4v3'))
-    parser.add_argument('-o', '--output', type=str, default='results', help='Output folder')
+    parser.add_argument('-o', '--output_frames', type=str, default='inputs/frames', help='Output folder')
+    parser.add_argument('--output_video', type=str, help='Output folder')
     parser.add_argument('--workers', type=int, default=1, help='Num of worker to multiprocess')
     parser.add_argument(
         '-dn',
@@ -258,21 +338,26 @@ def main():
         help='Image extension. Options: auto | jpg | png, auto means using the same extension as inputs')
     parser.add_argument(
         '-g', '--gpu-id', type=int, default=None, help='gpu device to use (default=None) can be 0,1,2 for multi-gpu')
-
+    parser.add_argument('--keep_frames',action='store_true',default=False, help='Keep the frames so you can rescale them later.')
     args = parser.parse_args()
 
 
+    extension = os.path.splitext(args.input)[1].lower()
+
+    if extension == '.mp4' or extension == '.avi' or extension == '.mov' or extension == '.mkv' or extension == '.flv' or extension == '.wmv':
+      create_frames(args)
+      paths=getPaths(args.output_frames)
+
+      process_video(args,paths,upsacle_frames)
+      create_video(args)
+
+    else:
+      paths = getPaths(args.input)
+      process_video(args,paths, upsacle_frames)
 
 
-    os.makedirs(args.output, exist_ok=True)
-
-
-    paths = getPaths(args)
-    print(paths)
-    process_video(args,paths, upsacle_frames)
-
-
-
+    if(args.keep_frames==False):
+      delete_frames(args)
 
 if __name__ == '__main__':
     main()

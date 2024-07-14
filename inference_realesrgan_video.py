@@ -148,7 +148,7 @@ class Writer:
                              framerate=fps).output(
                                  audio,
                                  video_save_path,
-                               pix_fmt='rgb24',
+                                 pix_fmt='yuv420p',
                                  vcodec='libx264',
                                  crf=16,
                                  preset='slow',
