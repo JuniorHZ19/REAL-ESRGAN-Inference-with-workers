@@ -2,10 +2,10 @@
 
 :proceso
 
-echo "Asegurese dentro de inputs este la carepta Test es donde ira los frames de prueba"
+echo "Asegurese dentro de inputs este la carepta inputs es donde ira los frames de prueba"
 echo  -----------------------------------------------------------------------------------
 
-set /p input="Ingrese nombre del video a testear este video debe tar en inputs/video o poner (n) si ya tenemos las imagens en test:"
+set /p input="Ingrese nombre del video a testear este video debe tar en inputs/video o poner (n) si ya tenemos las imagens en inputs/frames:"
 set contador=0
 set procesos=
 
@@ -13,8 +13,8 @@ set "BASE_DIR=%~dp0"
 
 
 if  not "%input%"== "n" (
-
-   ffmpeg -i inputs/video/%input%  "%BASE_DIR%\inputs\Test\frame_%%04d.png"
+   del /q "inputs\frames\*"
+   ffmpeg -i inputs/video/%input%  "%BASE_DIR%\inputs\frames\frame_%%04d.png"
    cls
 )
 
@@ -61,8 +61,8 @@ set /a contador=%contador%+1
 
 set procesos= %procesos% %contador%) Modelo: %model_name%; Escala: %scale%; Tile: %tile%
 
-python inference_realesrgan_video-multiproceso.py -i inputs/Test -n %model_name% -s %scale% --suffix "" -o inputs/Test --tile %tile%  --denoise_strength 1 --workers %worker% 
-pause
+python inference_realesrgan_video-multiproceso.py -i inputs/frames -n %model_name% -s %scale% --suffix "" --output_frames  inputs/frames --tile %tile%  --denoise_strength 1 --workers %worker% --keep_frames
+
 cls
 
 echo Procesos realizados:

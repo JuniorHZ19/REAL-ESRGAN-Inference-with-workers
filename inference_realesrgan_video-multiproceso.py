@@ -36,7 +36,7 @@ def create_frames(args):
        '-qmin','1',
        '-qmax','1',
        '-vsync','0',
-       str(args.output_frames)+'/frame_%08d.png']
+       str(args.output_frames)+'/frame_%04d.png']
 
    process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
    stdout, stderr = process.communicate()
@@ -76,7 +76,7 @@ def create_video(args):
    cmd = [
        'ffmpeg',
        '-framerate',str(info['fps']),
-       '-i',str(args.output_frames)+'/frame_%08d.png',
+       '-i',str(args.output_frames)+'/frame_%04d.png',
        '-i',str(args.input),
        '-map','0:v',
        '-map','1:a',
