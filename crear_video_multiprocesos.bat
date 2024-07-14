@@ -6,6 +6,12 @@ echo "Asegurese dentro de inputs este la carepta Test es donde ira los frames de
 echo  -----------------------------------------------------------------------------------
 
 set /p input="Ingrese nombre del video a testear este video debe tar en inputs/video o poner (n) si ya tenemos las imagens en test:"
+if "%input%"=="n" (
+  set "input=inputs/frames"
+)else (
+ set "input=inputs/video/%input%"
+)
+
 set /p output="Poner nombre final del archivo escalado:"
 set contador=0
 set procesos=
@@ -55,7 +61,7 @@ set /a contador=%contador%+1
 
 set procesos= %procesos% %contador%) Modelo: %model_name%; Escala: %scale%; Tile: %tile%
 
-python inference_realesrgan_video-multiproceso.py -i inputs/video/%input% -n %model_name% -s %scale% --suffix "" --output_video %output% --tile %tile%  --denoise_strength 1 --workers %worker% --keep_frames
+python inference_realesrgan_video-multiproceso.py -i %input% -n %model_name% -s %scale% --suffix "" --output_video %output% --tile %tile%  --denoise_strength 1 --workers %worker% --keep_frames
 pause
 cls
 

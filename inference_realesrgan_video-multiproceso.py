@@ -26,6 +26,9 @@ except ImportError:
     pip.main(['install', '--user', 'ffmpeg-python'])
     import ffmpeg
 
+THREAD_SEMAPHORE = threading.Semaphore()
+THREAD_LOCK = threading.Lock()
+UPSCALER = None
 def create_frames(args):
    delete_frames(args)
    print(f"Extracting frames ....")
@@ -82,7 +85,7 @@ def create_video(args):
        '-map','1:a',
        '-c:v','libx264',
        '-crf','16',
-       '-preset','slow',
+       '-preset','veryslow',
        '-pix_fmt', 'yuv420p',
        '-c:a','mp3',
        '-r',str(info['fps']),
@@ -161,11 +164,11 @@ def upscale_frame(args,path,upsampler):
             img_mode = None
 
     try:
-
+        with THREAD_SEMAPHORE:
             output, _ = upsampler.enhance(img, outscale=args.outscale)
     except RuntimeError as error:
             print('Error', error)
-            print('If you encounter CUDA out of memory, try to set --tile with a smaller number.')
+            print('If you encounter CUDA out of memory, try to set --tile with a smaller number or reduce the number of workers.')
     else:
             if args.ext == 'auto':
                 extension = extension[1:]
@@ -223,6 +226,7 @@ def get_sub_video(args, num_process, process_idx):
     return out_path
 
 def getModel(args):
+    global UPSCALER
     # determine models according to model names
     args.model_name = args.model_name.split('.')[0]
     if args.model_name == 'RealESRGAN_x4plus':  # x4 RRDBNet model
@@ -272,18 +276,21 @@ def getModel(args):
         model_path = [model_path, wdn_model_path]
         dni_weight = [args.denoise_strength, 1 - args.denoise_strength]
 
-    upsampler = RealESRGANer(
-    scale=netscale,
-    model_path=model_path,
-    dni_weight=dni_weight,
-    model=model,
-    tile=args.tile,
-    tile_pad=args.tile_pad,
-    pre_pad=args.pre_pad,
-    half=not args.fp32,
-    gpu_id=args.gpu_id)
+    with THREAD_LOCK:
 
-    return upsampler
+     if UPSCALER is None:
+      UPSCALER = RealESRGANer(
+      scale=netscale,
+      model_path=model_path,
+      dni_weight=dni_weight,
+      model=model,
+      tile=args.tile,
+      tile_pad=args.tile_pad,
+      pre_pad=args.pre_pad,
+      half=not args.fp32,
+      gpu_id=args.gpu_id)
+
+    return UPSCALER
 
 
 def main():
@@ -291,9 +298,15 @@ def main():
     """
     Crear carpeta donde iran los frames:
     """
+    carpeta_input='inputs'
     carpeta_frames='inputs/frames'
+    carpeta_results='results'
     if not os.path.exists(carpeta_frames):
      os.makedirs(carpeta_frames, exist_ok=True)
+    elif not os.path.exists(carpeta_input):
+     os.makedirs(carpeta_input, exist_ok=True)
+    elif not os.path.exists(carpeta_results):
+     os.makedirs(carpeta_results, exist_ok=True)
 
     """Inference demo for Real-ESRGAN.
     """
@@ -346,13 +359,13 @@ def main():
 
     if extension == '.mp4' or extension == '.avi' or extension == '.mov' or extension == '.mkv' or extension == '.flv' or extension == '.wmv':
       create_frames(args)
-      paths=getPaths(args.output_frames)
+      paths=sorted(getPaths(args.output_frames))
 
       process_video(args,paths,upsacle_frames)
       create_video(args)
 
     else:
-      paths = getPaths(args.input)
+      paths = sorted(getPaths(args.input))
       process_video(args,paths, upsacle_frames)
 
 
