@@ -70,8 +70,8 @@ def get_video_meta_info(video_path):
 
 
 
-def create_video(args):
-   print("Creating Video......")
+def create_video_cpu(args):
+   print("Creating Video with cpu......")
    info=get_video_meta_info(args.input)
    cmd = [
        'ffmpeg',
@@ -81,8 +81,34 @@ def create_video(args):
        '-map','0:v',
        '-map','1:a',
        '-c:v','libx264',
-       '-crf','16',
-       '-preset','veryslow',
+       '-crf','12',
+       '-preset','slow',
+       '-pix_fmt', 'yuv420p',
+       '-c:a','mp3',
+       '-r',str(info['fps']),
+        "results/"+str(args.output_video)
+        ]
+   process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+   stdout, stderr = process.communicate()
+   if process.returncode != 0:
+    print(stderr)
+    raise RuntimeError(stderr)
+   else:
+    print("Done Recreating Video")
+
+def create_video_gpu(args):
+   print("Creating Video with cuda......")
+   info=get_video_meta_info(args.input)
+   cmd = [
+       'ffmpeg',
+       '-framerate',str(info['fps']),
+       '-i',str(args.output_frames)+'/frame_%04d.png',
+       '-i',str(args.input),
+       '-map','0:v',
+       '-map','1:a',
+       '-c:v','h264_nvenc',
+       '-cq','14',
+       '-preset','hq',
        '-pix_fmt', 'yuv420p',
        '-c:a','mp3',
        '-r',str(info['fps']),
@@ -147,8 +173,6 @@ def update_progress(args,progress):
      progress.update(1/args.workers)
     else:
      progress.update(1)
-
-
 
 
 
@@ -333,6 +357,7 @@ def main():
     parser.add_argument('--tile_pad', type=int, default=10, help='Tile padding')
     parser.add_argument('--pre_pad', type=int, default=0, help='Pre padding size at each border')
     parser.add_argument('--face_enhance', action='store_true', help='Use GFPGAN to enhance face')
+    parser.add_argument('--encoder', type=str,default='cpu',help='Please use an encoder for the final video(cpu or cuda) default cpu')
     parser.add_argument(
         '--fp32', action='store_true', help='Use fp32 precision during inference. Default: fp16 (half precision).')
     parser.add_argument(
@@ -358,7 +383,13 @@ def main():
       paths=getPaths(args.output_frames)
 
       process_video(args,paths,upsacle_frames)
-      create_video(args)
+      print('esss',args.encoder.lower())
+      if args.encoder.lower()=='cpu':
+       create_video_cpu(args)
+      elif args.encoder.lower()=='cuda':
+        create_video_gpu(args)
+      else:
+         print( 'The specified encoder is not valid. Please use either a CPU or CUDA encoder.')
 
     else:
       paths = getPaths(args.input)

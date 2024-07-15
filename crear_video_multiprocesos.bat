@@ -61,7 +61,7 @@ set /a contador=%contador%+1
 
 set procesos= %procesos% %contador%) Modelo: %model_name%; Escala: %scale%; Tile: %tile%
 
-python inference_realesrgan_video-multiproceso.py -i %input% -n %model_name% -s %scale% --suffix "" --output_video %output% --tile %tile%  --denoise_strength 1 --workers %worker% --keep_frames
+python inference_realesrgan_video-multiproceso.py -i %input% -n %model_name% -s %scale% --suffix "" --output_video %output% --tile %tile%  --denoise_strength 1 --workers %worker% --keep_frames --encoder cpu
 pause
 cls
 
