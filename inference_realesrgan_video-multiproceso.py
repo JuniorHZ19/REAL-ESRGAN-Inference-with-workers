@@ -26,9 +26,6 @@ except ImportError:
     pip.main(['install', '--user', 'ffmpeg-python'])
     import ffmpeg
 
-THREAD_SEMAPHORE = threading.Semaphore()
-THREAD_LOCK = threading.Lock()
-UPSCALER = None
 def create_frames(args):
    delete_frames(args)
    print(f"Extracting frames ....")
@@ -135,10 +132,10 @@ def process_video(args,frame_paths, process_frames) :
     progress_bar_format = '{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}{postfix}]'
     total = len(frame_paths)
     with tqdm(total=total, desc='Processing', unit='frame', dynamic_ncols=True, bar_format=progress_bar_format) as progress:
-        multi_process_frame(args,frame_paths, process_frames, lambda: update_progress(progress))
+        multi_process_frame(args,frame_paths, process_frames, lambda: update_progress(args,progress))
 
 
-def update_progress(progress):
+def update_progress(args,progress):
     process = psutil.Process(os.getpid())
     memory_usage = process.memory_info().rss / 1024 / 1024 / 1024
     progress.set_postfix({
@@ -146,7 +143,10 @@ def update_progress(progress):
 
     })
     progress.refresh()
-    progress.update(1)
+    if args.workers>2 :
+     progress.update(1/args.workers)
+    else:
+     progress.update(1)
 
 
 
@@ -164,7 +164,7 @@ def upscale_frame(args,path,upsampler):
             img_mode = None
 
     try:
-        with THREAD_SEMAPHORE:
+
             output, _ = upsampler.enhance(img, outscale=args.outscale)
     except RuntimeError as error:
             print('Error', error)
@@ -226,7 +226,6 @@ def get_sub_video(args, num_process, process_idx):
     return out_path
 
 def getModel(args):
-    global UPSCALER
     # determine models according to model names
     args.model_name = args.model_name.split('.')[0]
     if args.model_name == 'RealESRGAN_x4plus':  # x4 RRDBNet model
@@ -276,21 +275,18 @@ def getModel(args):
         model_path = [model_path, wdn_model_path]
         dni_weight = [args.denoise_strength, 1 - args.denoise_strength]
 
-    with THREAD_LOCK:
+    upsampler = RealESRGANer(
+    scale=netscale,
+    model_path=model_path,
+    dni_weight=dni_weight,
+    model=model,
+    tile=args.tile,
+    tile_pad=args.tile_pad,
+    pre_pad=args.pre_pad,
+    half=not args.fp32,
+    gpu_id=args.gpu_id)
 
-     if UPSCALER is None:
-      UPSCALER = RealESRGANer(
-      scale=netscale,
-      model_path=model_path,
-      dni_weight=dni_weight,
-      model=model,
-      tile=args.tile,
-      tile_pad=args.tile_pad,
-      pre_pad=args.pre_pad,
-      half=not args.fp32,
-      gpu_id=args.gpu_id)
-
-    return UPSCALER
+    return upsampler
 
 
 def main():
@@ -359,13 +355,13 @@ def main():
 
     if extension == '.mp4' or extension == '.avi' or extension == '.mov' or extension == '.mkv' or extension == '.flv' or extension == '.wmv':
       create_frames(args)
-      paths=sorted(getPaths(args.output_frames))
+      paths=getPaths(args.output_frames)
 
       process_video(args,paths,upsacle_frames)
       create_video(args)
 
     else:
-      paths = sorted(getPaths(args.input))
+      paths = getPaths(args.input)
       process_video(args,paths, upsacle_frames)
 
 
